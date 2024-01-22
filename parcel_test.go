@@ -18,8 +18,7 @@ const (
 var (
 	randSource = rand.NewSource(time.Now().UnixNano())
 	randRange  = rand.New(randSource)
-	db         *sql.DB
-	err        error
+	store      ParcelStore
 )
 
 // getTestParcel возвращает тестовую посылку
@@ -33,21 +32,22 @@ func getTestParcel() Parcel {
 }
 
 func TestMain(m *testing.M) {
-	db, err = sql.Open("sqlite", "tracker.db")
+	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer db.Close()
+	store = NewParcelStore(db)
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }
 
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
-	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
+	var err error
 	parcel.Number, err = store.Add(parcel)
 	require.NoError(t, err)
 	require.Positive(t, parcel.Number)
@@ -64,9 +64,9 @@ func TestAddGetDelete(t *testing.T) {
 
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
-	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
+	var err error
 	parcel.Number, err = store.Add(parcel)
 	require.NoError(t, err)
 	require.Positive(t, parcel.Number)
@@ -82,9 +82,9 @@ func TestSetAddress(t *testing.T) {
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
-	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
+	var err error
 	parcel.Number, err = store.Add(parcel)
 	require.NoError(t, err)
 	require.Positive(t, parcel.Number)
@@ -99,7 +99,6 @@ func TestSetStatus(t *testing.T) {
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
-	store := NewParcelStore(db)
 
 	parcels := []Parcel{
 		getTestParcel(),
