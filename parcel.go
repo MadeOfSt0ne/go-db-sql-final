@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+
+	sq "github.com/Masterminds/squirrel"
 )
 
 type ParcelStore struct {
@@ -14,11 +16,11 @@ func NewParcelStore(db *sql.DB) ParcelStore {
 }
 
 func (s ParcelStore) Add(p Parcel) (int, error) {
-	res, err := s.db.Exec("INSERT INTO parcel (client, status, address, created_at) VALUES (:client, :status, :address, :created_at)",
-		sql.Named("client", p.Client),
-		sql.Named("status", p.Status),
-		sql.Named("address", p.Address),
-		sql.Named("created_at", p.CreatedAt))
+	res, err := sq.Insert("parcel").
+		Columns("client", "status", "address", "created_at").
+		Values(p.Client, p.Status, p.Address, p.CreatedAt).
+		Suffix("RETURNING \"id\""). // можно написать RETURNING number
+		RunWith(s.db).Exec()
 	if err != nil {
 		fmt.Printf("Error inserting parcel into db: %v", err)
 		return 0, err
@@ -32,17 +34,22 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 }
 
 func (s ParcelStore) Get(number int) (Parcel, error) {
-	row := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = :id", sql.Named("id", number))
+	row := sq.Select("number", "client", "status", "address", "created_at").
+		From("parcel").
+		Where(sq.Eq{"number": number}).
+		RunWith(s.db).QueryRow()
 	p := Parcel{}
 	err := row.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 	return p, err
 }
 
 func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
-	rows, err := s.db.Query("SELECT number, client, status, address, created_at FROM parcel WHERE client = :client",
-		sql.Named("client", client))
+	rows, err := sq.Select("number", "client", "status", "address", "created_at").
+		From("parcel").
+		Where(sq.Eq{"client": client}).
+		RunWith(s.db).Query()
 	if err != nil {
-		fmt.Printf("Error getting last inserted id: %v", err)
+		fmt.Printf("Error getting parcels by client: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -63,23 +70,24 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 }
 
 func (s ParcelStore) SetStatus(number int, status string) error {
-	_, err := s.db.Exec("UPDATE parcel SET status = :status WHERE number = :number",
-		sql.Named("status", status),
-		sql.Named("number", number))
+	_, err := sq.Update("parcel").
+		Set("status", status).
+		Where(sq.Eq{"number": number}).
+		RunWith(s.db).Exec()
 	return err
 }
 
 func (s ParcelStore) SetAddress(number int, address string) error {
-	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number AND status = :status",
-		sql.Named("address", address),
-		sql.Named("number", number),
-		sql.Named("status", ParcelStatusRegistered))
+	_, err := sq.Update("parcel").
+		Set("address", address).
+		Where(sq.Eq{"number": number, "status": ParcelStatusRegistered}).
+		RunWith(s.db).Exec()
 	return err
 }
 
 func (s ParcelStore) Delete(number int) error {
-	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number AND status = :status",
-		sql.Named("number", number),
-		sql.Named("status", ParcelStatusRegistered))
+	_, err := sq.Delete("parcel").
+		Where(sq.Eq{"number": number, "status": ParcelStatusRegistered}).
+		RunWith(s.db).Exec()
 	return err
 }
