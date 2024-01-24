@@ -19,16 +19,13 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 	res, err := sq.Insert("parcel").
 		Columns("client", "status", "address", "created_at").
 		Values(p.Client, p.Status, p.Address, p.CreatedAt).
-		Suffix("RETURNING \"id\""). // можно написать RETURNING number
 		RunWith(s.db).Exec()
 	if err != nil {
-		fmt.Printf("Error inserting parcel into db: %v", err)
-		return 0, err
+		return 0, fmt.Errorf("error inserting parcel into db: %v", err)
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		fmt.Printf("Error getting last inserted id: %v", err)
-		return 0, err
+		return 0, fmt.Errorf("error getting last inserted id: %v", err)
 	}
 	return int(id), nil
 }
@@ -49,8 +46,7 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 		Where(sq.Eq{"client": client}).
 		RunWith(s.db).Query()
 	if err != nil {
-		fmt.Printf("Error getting parcels by client: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error getting parcels by client: %v", err)
 	}
 	defer rows.Close()
 	var res []Parcel
@@ -58,13 +54,12 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 		p := Parcel{}
 		err := rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 		if err != nil {
-			fmt.Println(err)
-			return nil, err
+			return nil, fmt.Errorf("error scanning row: %v", err)
 		}
 		res = append(res, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error scanning row: %v", err)
 	}
 	return res, nil
 }
