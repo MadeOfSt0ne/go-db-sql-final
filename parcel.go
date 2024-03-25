@@ -15,6 +15,7 @@ func NewParcelStore(db *sql.DB) ParcelStore {
 	return ParcelStore{db: db}
 }
 
+// Добавляет новую посылку в бд
 func (s ParcelStore) Add(p Parcel) (int, error) {
 	res, err := sq.Insert("parcel").
 		Columns("client", "status", "address", "created_at").
@@ -30,6 +31,7 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 	return int(id), nil
 }
 
+// Получение посылки по идентификатору
 func (s ParcelStore) Get(number int) (Parcel, error) {
 	row := sq.Select("number", "client", "status", "address", "created_at").
 		From("parcel").
